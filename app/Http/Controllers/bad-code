@@ -1,0 +1,946 @@
+    public function dog_datatables(Request $request)
+    {
+        if($request->ajax()) {
+            
+            $dateString = $request->get('date_code');
+            $originalDate = strtotime($dateString);
+            $oneDayBefore = date("Y-m-d", strtotime("-1 day", $originalDate));
+            
+            $dogsArray = Dog::where('venue_code', $request->get('venue'))
+                ->where('race_id', $request->get('raceID'))
+                ->whereDate('date', $request->get('date_code'))
+                ->pluck('dog_id')
+                ->toArray();
+                
+            if($request->get('unique_dog') == "on") {
+
+
+
+
+
+
+
+
+
+            if($request->get('distance') != "multi")
+            {
+                $racing = RaceForm::selectRaw(
+                    'race_forms.*, (race_forms.Time + (race_forms.Time - race_forms.Bon)) AS time_ratio'
+                );
+                $searchValue = $request->input('search.value');
+                if (!empty($request->get('distance'))) {
+
+                    $racing->join(
+                        \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE distance = ? AND Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                        function ($join) {
+                            $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                        }
+                    )->setBindings([$request->get('distance')]);
+                } 
+                else {
+                    $racing->join(
+                        \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                        function ($join) {
+                            $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                        }
+                    );
+                }   
+                // dd($racing);
+                if(!empty($request->get('plc'))) {
+                    $racing->orderBy('plc', $request->get('plc'));
+                }
+                
+                $racing->orderBy('race_forms.time2', $request->get('time_order'))
+                       ->whereIn('race_forms.dog_id', $dogsArray)
+                       ->latest();
+                       
+
+                $return_data = Datatables::of($racing)
+                    ->editColumn('dpg_name', function(RaceForm $race) {
+                        $dog = Dog::find($race->dog_id);
+                        return $dog->dog_name;
+                    })
+                    ->editColumn('time_ratio', function (RaceForm $race) {
+                        return number_format($race->time_ratio, 2);
+                    })
+                    ->filterColumn('time_ratio', function ($instance, $request) {
+                        if(!empty($request->get('time_ratio'))) {
+                            $instance->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                        }
+                    })
+                    ->filter(function ($instance) use ($request) {
+                        if(!empty($request->get('dogs'))){
+                            $instance->whereIn('race_forms.dog_id', explode(",", $request->get('dogs')));
+                        }
+    
+                        if(!empty($request->get('datepicker'))) {
+                            switch ($request->get('datepicker')) {
+                                case 'all':
+                                    break;
+                                
+                                default:
+                                   $date = explode(" - ", $request->get('datepicker'));
+                                   $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                    $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                    $instance->whereBetween("date", [$startDate, $endDate]);
+                                    break;
+                            }
+                        }
+    
+                        if(!empty($request->get('time_order'))) {
+    
+                        }
+
+                        if ($keyword = $request->input('search.value')) {
+                            $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                        }
+    
+                        if(!empty($request->get('orderA'))) {
+                            switch ($request->get('orderA')) {
+                                case 'ASC':
+                                    $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                    break;
+                                
+                                default:
+                                    $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                    break;
+                            }
+                        }
+                    })
+                    ->rawColumns(['dpg_name', 'time_ratio'])
+                    ->toJson();
+
+
+
+
+
+                }
+                else
+                {
+
+
+                     // distance 300
+
+
+                    $racing1 = RaceForm::selectRaw(
+                        'race_forms.*, (race_forms.Time + (race_forms.Time - race_forms.Bon)) AS time_ratio'
+                    );
+                    $searchValue = $request->input('search.value');
+                    if (!empty($request->get('distance'))) {
+    
+                        $racing1->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE distance = ? AND Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        )->setBindings(['300']);
+                    } 
+                    else {
+                        $racing1->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        );
+                    }   
+                    if(!empty($request->get('plc'))) {
+                        $racing1->orderBy('plc', $request->get('plc'));
+                    }
+                    
+                    $racing1->orderBy('race_forms.time2', $request->get('time_order'))
+                           ->whereIn('race_forms.dog_id', $dogsArray)
+                           ->latest();
+                           
+    
+                    $return_data1 = Datatables::of($racing1)
+                        ->editColumn('dpg_name', function(RaceForm $race) {
+                            $dog = Dog::find($race->dog_id);
+                            return $dog->dog_name;
+                        })
+                        ->editColumn('time_ratio', function (RaceForm $race) {
+                            return number_format($race->time_ratio, 2);
+                        })
+                        ->filterColumn('time_ratio', function ($instance, $request) {
+                            if(!empty($request->get('time_ratio'))) {
+                                $instance->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                            }
+                        })
+                        ->filter(function ($instance) use ($request) {
+                            if(!empty($request->get('dogs'))){
+                                $instance->whereIn('race_forms.dog_id', explode(",", $request->get('dogs')));
+                            }
+        
+                            if(!empty($request->get('datepicker'))) {
+                                switch ($request->get('datepicker')) {
+                                    case 'all':
+                                        break;
+                                    
+                                    default:
+                                       $date = explode(" - ", $request->get('datepicker'));
+                                       $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                        $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                        $instance->whereBetween("date", [$startDate, $endDate]);
+                                        break;
+                                }
+                            }
+        
+                            if(!empty($request->get('time_order'))) {
+        
+                            }
+    
+                            if ($keyword = $request->input('search.value')) {
+                                $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                            }
+        
+                            if(!empty($request->get('orderA'))) {
+                                switch ($request->get('orderA')) {
+                                    case 'ASC':
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                    
+                                    default:
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                }
+                            }
+                        })
+                        ->rawColumns(['dpg_name', 'time_ratio'])
+                        ->toJson();
+
+
+
+
+                    // distance 350
+
+
+                    $racing2 = RaceForm::selectRaw(
+                        'race_forms.*, (race_forms.Time + (race_forms.Time - race_forms.Bon)) AS time_ratio'
+                    );
+                    $searchValue = $request->input('search.value');
+                    if (!empty($request->get('distance'))) {
+    
+                        $racing2->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE distance = ? AND Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        )->setBindings(['350']);
+                    } 
+                    else {
+                        $racing2->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        );
+                    }   
+                    if(!empty($request->get('plc'))) {
+                        $racing2->orderBy('plc', $request->get('plc'));
+                    }
+                    
+                    $racing2->orderBy('race_forms.time2', $request->get('time_order'))
+                            ->whereIn('race_forms.dog_id', $dogsArray)
+                            ->latest();
+                            
+    
+                    $return_data2 = Datatables::of($racing2)
+                        ->editColumn('dpg_name', function(RaceForm $race) {
+                            $dog = Dog::find($race->dog_id);
+                            return $dog->dog_name;
+                        })
+                        ->editColumn('time_ratio', function (RaceForm $race) {
+                            return number_format($race->time_ratio, 2);
+                        })
+                        ->filterColumn('time_ratio', function ($instance, $request) {
+                            if(!empty($request->get('time_ratio'))) {
+                                $instance->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                            }
+                        })
+                        ->filter(function ($instance) use ($request) {
+                            if(!empty($request->get('dogs'))){
+                                $instance->whereIn('race_forms.dog_id', explode(",", $request->get('dogs')));
+                            }
+        
+                            if(!empty($request->get('datepicker'))) {
+                                switch ($request->get('datepicker')) {
+                                    case 'all':
+                                        break;
+                                    
+                                    default:
+                                        $date = explode(" - ", $request->get('datepicker'));
+                                        $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                        $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                        $instance->whereBetween("date", [$startDate, $endDate]);
+                                        break;
+                                }
+                            }
+        
+                            if(!empty($request->get('time_order'))) {
+        
+                            }
+    
+                            if ($keyword = $request->input('search.value')) {
+                                $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                            }
+        
+                            if(!empty($request->get('orderA'))) {
+                                switch ($request->get('orderA')) {
+                                    case 'ASC':
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                    
+                                    default:
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                }
+                            }
+                        })
+                        ->rawColumns(['dpg_name', 'time_ratio'])
+                        ->toJson();
+
+
+
+
+                    // distance 400
+
+
+                    $racing3 = RaceForm::selectRaw(
+                        'race_forms.*, (race_forms.Time + (race_forms.Time - race_forms.Bon)) AS time_ratio'
+                    );
+                    $searchValue = $request->input('search.value');
+                    if (!empty($request->get('distance'))) {
+    
+                        $racing3->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE distance = ? AND Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        )->setBindings(['400']);
+                    } 
+                    else {
+                        $racing3->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        );
+                    }   
+                    if(!empty($request->get('plc'))) {
+                        $racing3->orderBy('plc', $request->get('plc'));
+                    }
+                    
+                    $racing3->orderBy('race_forms.time2', $request->get('time_order'))
+                            ->whereIn('race_forms.dog_id', $dogsArray)
+                            ->latest();
+                            
+    
+                    $return_data3 = Datatables::of($racing3)
+                        ->editColumn('dpg_name', function(RaceForm $race) {
+                            $dog = Dog::find($race->dog_id);
+                            return $dog->dog_name;
+                        })
+                        ->editColumn('time_ratio', function (RaceForm $race) {
+                            return number_format($race->time_ratio, 2);
+                        })
+                        ->filterColumn('time_ratio', function ($instance, $request) {
+                            if(!empty($request->get('time_ratio'))) {
+                                $instance->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                            }
+                        })
+                        ->filter(function ($instance) use ($request) {
+                            if(!empty($request->get('dogs'))){
+                                $instance->whereIn('race_forms.dog_id', explode(",", $request->get('dogs')));
+                            }
+        
+                            if(!empty($request->get('datepicker'))) {
+                                switch ($request->get('datepicker')) {
+                                    case 'all':
+                                        break;
+                                    
+                                    default:
+                                        $date = explode(" - ", $request->get('datepicker'));
+                                        $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                        $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                        $instance->whereBetween("date", [$startDate, $endDate]);
+                                        break;
+                                }
+                            }
+        
+                            if(!empty($request->get('time_order'))) {
+        
+                            }
+    
+                            if ($keyword = $request->input('search.value')) {
+                                $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                            }
+        
+                            if(!empty($request->get('orderA'))) {
+                                switch ($request->get('orderA')) {
+                                    case 'ASC':
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                    
+                                    default:
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                }
+                            }
+                        })
+                        ->rawColumns(['dpg_name', 'time_ratio'])
+                        ->toJson();
+
+
+
+                            
+                    // distance 450
+
+
+                    $racing4 = RaceForm::selectRaw(
+                        'race_forms.*, (race_forms.Time + (race_forms.Time - race_forms.Bon)) AS time_ratio'
+                    );
+                    $searchValue = $request->input('search.value');
+                    if (!empty($request->get('distance'))) {
+    
+                        $racing4->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE distance = ? AND Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        )->setBindings(['450']);
+                    } 
+                    else {
+                        $racing4->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        );
+                    }   
+                    if(!empty($request->get('plc'))) {
+                        $racing4->orderBy('plc', $request->get('plc'));
+                    }
+                    
+                    $racing4->orderBy('race_forms.time2', $request->get('time_order'))
+                            ->whereIn('race_forms.dog_id', $dogsArray)
+                            ->latest();
+                            
+    
+                    $return_data4 = Datatables::of($racing4)
+                        ->editColumn('dpg_name', function(RaceForm $race) {
+                            $dog = Dog::find($race->dog_id);
+                            return $dog->dog_name;
+                        })
+                        ->editColumn('time_ratio', function (RaceForm $race) {
+                            return number_format($race->time_ratio, 2);
+                        })
+                        ->filterColumn('time_ratio', function ($instance, $request) {
+                            if(!empty($request->get('time_ratio'))) {
+                                $instance->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                            }
+                        })
+                        ->filter(function ($instance) use ($request) {
+                            if(!empty($request->get('dogs'))){
+                                $instance->whereIn('race_forms.dog_id', explode(",", $request->get('dogs')));
+                            }
+        
+                            if(!empty($request->get('datepicker'))) {
+                                switch ($request->get('datepicker')) {
+                                    case 'all':
+                                        break;
+                                    
+                                    default:
+                                        $date = explode(" - ", $request->get('datepicker'));
+                                        $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                        $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                        $instance->whereBetween("date", [$startDate, $endDate]);
+                                        break;
+                                }
+                            }
+        
+                            if(!empty($request->get('time_order'))) {
+        
+                            }
+    
+                            if ($keyword = $request->input('search.value')) {
+                                $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                            }
+        
+                            if(!empty($request->get('orderA'))) {
+                                switch ($request->get('orderA')) {
+                                    case 'ASC':
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                    
+                                    default:
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                }
+                            }
+                        })
+                        ->rawColumns(['dpg_name', 'time_ratio'])
+                        ->toJson();
+
+
+
+
+                    // distance 500
+
+                    $racing5 = RaceForm::selectRaw(
+                        'race_forms.*, (race_forms.Time + (race_forms.Time - race_forms.Bon)) AS time_ratio'
+                    );
+                    $searchValue = $request->input('search.value');
+                    if (!empty($request->get('distance'))) {
+    
+                        $racing5->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE distance = ? AND Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        )->setBindings(['500']);
+                    } 
+                    else {
+                        $racing5->join(
+                            \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE Time != \'0.00\' AND Time != \'\' AND date < \'' . $oneDayBefore . '\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                            function ($join) {
+                                $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                    ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                            }
+                        );
+                    }   
+                    if(!empty($request->get('plc'))) {
+                        $racing5->orderBy('plc', $request->get('plc'));
+                    }
+                    
+                    $racing5->orderBy('race_forms.time2', $request->get('time_order'))
+                            ->whereIn('race_forms.dog_id', $dogsArray)
+                            ->latest();
+                            
+    
+                    $return_data5 = Datatables::of($racing5)
+                        ->editColumn('dpg_name', function(RaceForm $race) {
+                            $dog = Dog::find($race->dog_id);
+                            return $dog->dog_name;
+                        })
+                        ->editColumn('time_ratio', function (RaceForm $race) {
+                            return number_format($race->time_ratio, 2);
+                        })
+                        ->filterColumn('time_ratio', function ($instance, $request) {
+                            if(!empty($request->get('time_ratio'))) {
+                                $instance->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                            }
+                        })
+                        ->filter(function ($instance) use ($request) {
+                            if(!empty($request->get('dogs'))){
+                                $instance->whereIn('race_forms.dog_id', explode(",", $request->get('dogs')));
+                            }
+        
+                            if(!empty($request->get('datepicker'))) {
+                                switch ($request->get('datepicker')) {
+                                    case 'all':
+                                        break;
+                                    
+                                    default:
+                                        $date = explode(" - ", $request->get('datepicker'));
+                                        $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                        $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                        $instance->whereBetween("date", [$startDate, $endDate]);
+                                        break;
+                                }
+                            }
+        
+                            if(!empty($request->get('time_order'))) {
+        
+                            }
+    
+                            if ($keyword = $request->input('search.value')) {
+                                $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                            }
+        
+                            if(!empty($request->get('orderA'))) {
+                                switch ($request->get('orderA')) {
+                                    case 'ASC':
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                    
+                                    default:
+                                        $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                        break;
+                                }
+                            }
+                        })
+                        ->rawColumns(['dpg_name', 'time_ratio'])
+                        ->toJson();
+
+
+
+
+
+
+
+                    $data1 = $return_data1->getData()->data;
+                    $data2 = $return_data2->getData()->data;
+                    $data3 = $return_data3->getData()->data;
+                    $data4 = $return_data4->getData()->data;
+                    $data5 = $return_data5->getData()->data;
+                    $return_data1_length = count($data1);
+                    $return_data2_length = count($data2);
+                    $return_data3_length = count($data3);
+                    $return_data4_length = count($data4);
+                    $return_data5_length = count($data5);
+                    $target1 = floatval($data1[0]->time2) + 0.16;
+                    $target2 = floatval($data2[0]->time2) + 0.16;
+                    $target3 = floatval($data3[0]->time2) + 0.16;
+                    $target4 = floatval($data4[0]->time2) + 0.16;
+                    $target5 = floatval($data5[0]->time2) + 0.16;
+
+                    if($return_data1_length < 3)
+                        $data1 = [];
+                    else
+                    {
+                        for($i=0; $i<$return_data1_length;$i++)
+                        {
+                            if($target1 < floatval($data1[$i]->time2))
+                            {
+                                unset($data1[$i]);
+                            }
+                        }
+                    }
+                    if($return_data2_length < 3)
+                        $data2 = [];
+                    else
+                    {
+                        for($i=0; $i<$return_data2_length;$i++)
+                        {
+                            if($target2 < floatval($data2[$i]->time2))
+                            {
+                                unset($data2[$i]);
+                            } 
+                        }
+                    }
+                    if($return_data3_length < 3)
+                        $data3 = [];
+                    else
+                    {
+                        for($i=0; $i<$return_data3_length;$i++)
+                        {
+                            if($target3 < floatval($data3[$i]->time2))
+                            {
+                                unset($data3[$i]);
+                            } 
+                        }
+                    }
+                    if($return_data4_length < 3)
+                        $data4 = [];
+                    else
+                    {
+                        for($i=0; $i<$return_data4_length;$i++)
+                        {
+                            if($target4 < floatval($data4[$i]->time2))
+                            {
+                                unset($data4[$i]);
+                            } 
+                        }
+                    }
+                    if($return_data5_length < 3)
+                        $data5 = [];
+                    else
+                    {
+                        for($i=0; $i<$return_data5_length;$i++)
+                        {
+                            if($target5 < floatval($data5[$i]->time2))
+                            {
+                                unset($data5[$i]);
+                            } 
+                        }
+                    }
+                    
+                    $mergedData = (object)['data' => array_merge($data1, $data2, $data3, $data4, $data5)];
+                    $return_data1->setData($mergedData);
+                    $return_data = $return_data1;
+                }
+
+
+
+
+
+
+
+                    $data = $return_data->getData();
+                    // $return_data_length = count($data->data);
+                    // if($return_data_length < 3)
+                    // {
+                    //     return response()->json([
+                    //         'return_data' => $return_data,
+                    //         'isDataLessThanThree' => $return_data_length
+                    //     ]);
+                    // }
+                    return $return_data;
+
+            }else {
+                $racing = RaceForm::selectRaw(
+                    '*, (Time + (Time - Bon)) AS time_ratio'
+                )->whereIn('dog_id', $dogsArray)
+                ->whereDate('date', '<', $oneDayBefore);
+
+                if(!empty($request->get('plc'))) {
+                    $racing->orderBy('plc', $request->get('plc'));
+                }
+
+                if(!empty($request->get('time_ratio'))) {
+                    $racing->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                }
+
+                $racing = $racing->orderBy(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), $request->get('time_order'))
+                    ->latest();
+
+                $return_data = Datatables::of($racing)
+                    ->editColumn('dpg_name', function(RaceForm $race) {
+                        $dog = Dog::find($race->dog_id);
+                        return $dog->dog_name;
+                    })
+                    ->editColumn('time_ratio', function (RaceForm $race) {
+                        return number_format($race->time_ratio, 2);
+                    })
+                    // ->addColumn('time_ratio', function (RaceForm $race) {
+                    //     if (!empty($race->Time) && !empty($race->Bon)) {
+                    //         $result = floatval($race->Time) + (floatval($race->Time) - floatval($race->Bon));
+                    //         return number_format($result, 2);
+                    //     } else {
+                    //         return '';
+                    //     }
+                    // })
+                    // ->filterColumn('time_ratio', function ($instance, $request) {
+                    //     if(!empty($request->get('time_ratio'))) {
+                    //         $instance->orderBy(\DB::raw('CAST(time_ratio AS DECIMAL(10, 2))'), $request->get('time_ratio'));
+                    //     }
+                    // })
+                    ->filter(function ($instance) use ($request) {
+                        if(!empty($request->get('dogs'))){
+                            $instance->whereIn('dog_id', explode(",", $request->get('dogs')));
+                        }
+    
+                        if(!empty($request->get('distance'))) {
+                            $instance->where('distance', '=', $request->get('distance'));
+                        }
+
+                        if ($keyword = $request->input('search.value')) {
+                            $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                        }
+    
+                        if(!empty($request->get('datepicker'))) {
+                            switch ($request->get('datepicker')) {
+                                case 'all':
+                                    break;
+                                
+                                default:
+                                   $date = explode(" - ", $request->get('datepicker'));
+                                   $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                    $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                    $instance->whereBetween("date", [$startDate, $endDate]);
+                                    break;
+                            }
+                        }
+    
+                        if(!empty($request->get('orderA'))) {
+                            switch ($request->get('orderA')) {
+                                case 'ASC':
+                                    $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                    break;
+                                
+                                default:
+                                    $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                    break;
+                            }
+                        }
+                    })
+                    ->rawColumns(['dpg_name', 'time_ratio'])
+                    ->toJson();
+                   
+                    return $return_data;
+            }
+        }
+    }
+
+    public function form_datatables(Request $request)
+    {
+        if($request->ajax()) { 
+            if(!empty($request->get('unique_dog')) && $request->get('unique_dog') == "on")  {
+                $racing = RaceForm::selectRaw(
+                    'race_forms.*, (race_forms.Time + (race_forms.Time - race_forms.Bon)) AS time_ratio'
+                );
+
+                $searchValue = $request->input('search.value');
+                if (!empty($request->get('distance'))) {
+                    $racing->join(
+                        \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE distance = \''.$request->get('distance').'\' AND Time != \'0.00\' AND Time != \'\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                        function ($join) {
+                            $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                        }
+                    );
+                } else {
+                    $racing->join(
+                        \DB::raw('(SELECT dog_id, MIN(CAST(time2 AS DECIMAL(10, 2))) AS highest_time FROM race_forms WHERE Time != \'0.00\' AND Time != \'\' ' . ($searchValue ? "AND dist LIKE '%$searchValue%'" : '') . ' GROUP BY dog_id) as subq'),
+                        function ($join) {
+                            $join->on('race_forms.dog_id', '=', 'subq.dog_id')
+                                ->on(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), '=', 'subq.highest_time');
+                        }
+                    );
+                } 
+                
+                if(!empty($request->get('plc'))) {
+                    $racing->orderBy('plc', $request->get('plc'));
+                }
+                
+                $racing->orderBy('race_forms.time2', $request->get('time_order'))
+                        ->where('race_forms.Time', '!=', '0.00')
+                        ->where('race_forms.Time', '!=', NULL)
+                        ->where('race_forms.Time', '!=', '')
+                        ->latest();
+
+                return Datatables::of($racing)
+                ->editColumn('dpg_name', function(RaceForm $race) {
+                    $dog = Dog::find($race->dog_id);
+                    if(!empty($dog))
+                    {
+                        return $dog->dog_name;
+                    } else{
+                        return '';
+                    }
+                })
+                ->editColumn('time_ratio', function (RaceForm $race) {
+                    return number_format($race->time_ratio, 2);
+                })
+                ->filter(function ($instance) use ($request) {
+                    if(!empty($request->get('dogs'))){
+                        $instance->whereIn('race_forms.dog_id', explode(",", $request->get('dogs')));
+                    }
+
+                    if(!empty($request->get('distance'))) {
+                        $instance->where('distance', '=', $request->get('distance'));
+                    }
+
+                    if(!empty($request->get('raceID'))) {
+                        $instance->where('race_id', '=', $request->get('raceID'));
+                    }
+
+                    if(!empty($request->get('venux'))) {
+                        $instance->where('venue', '=', $request->get('venux'));
+                    }
+
+                    if ($keyword = $request->input('search.value')) {
+                        $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                    }
+
+                    if(!empty($request->get('datepicker'))) {
+                        switch ($request->get('datepicker')) {
+                            case 'all':
+                                break;
+                            
+                            default:
+                               $date = explode(" - ", $request->get('datepicker'));
+                               $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                $instance->whereBetween("date", [$startDate, $endDate]);
+                                break;
+                        }
+                    }
+
+                    if(!empty($request->get('orderA'))) {
+                        switch ($request->get('orderA')) {
+                            case 'ASC':
+                                $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                break;
+                            
+                            default:
+                                $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                break;
+                        }
+                    }
+                })
+                ->rawColumns(['dpg_name'])
+                ->toJson();
+            } else {
+                $racing = RaceForm::selectRaw(
+                    '*, (Time + (Time - Bon)) AS time_ratio'
+                );
+                if(!empty($request->get('plc'))) {
+                    $racing->orderBy('plc', $request->get('plc'));
+                }
+                $racing =  $racing->orderBy(\DB::raw('CAST(race_forms.time2 AS DECIMAL(10, 2))'), $request->get('time_order'))->latest();
+                return Datatables::of($racing)
+                ->editColumn('dpg_name', function(RaceForm $race) {
+                    $dog = Dog::find($race->dog_id);
+                    if(!empty($dog))
+                    {
+                        return $dog->dog_name;
+                    } else{
+                        return '';
+                    }
+                })
+                ->editColumn('time_ratio', function (RaceForm $race) {
+                    return number_format($race->time_ratio, 2);
+                })
+                ->filter(function ($instance) use ($request) {
+                    if(!empty($request->get('dogs'))){
+                        $instance->whereIn('dog_id', explode(",", $request->get('dogs')));
+                    }
+
+                    if(!empty($request->get('distance'))) {
+                        $instance->where('distance', '=', $request->get('distance'));
+                    }
+
+                    if(!empty($request->get('raceID'))) {
+                        $instance->where('race_id', '=', $request->get('raceID'));
+                    }
+
+                    if(!empty($request->get('venux'))) {
+                        $instance->where('venue', '=', $request->get('venux'));
+                    }
+
+                    if ($keyword = $request->input('search.value')) {
+                        $instance->where('dist', 'LIKE', '%' . $keyword . '%');
+                    }
+
+                    if(!empty($request->get('datepicker'))) {
+                        switch ($request->get('datepicker')) {
+                            case 'all':
+                                break;
+                            
+                            default:
+                               $date = explode(" - ", $request->get('datepicker'));
+                               $startDate = Carbon::parse($date[0])->format('Y-m-d');
+                                $endDate = Carbon::parse($date[1])->format('Y-m-d');
+                                $instance->whereBetween("date", [$startDate, $endDate]);
+                                break;
+                        }
+                    }
+
+                    if(!empty($request->get('orderA'))) {
+                        switch ($request->get('orderA')) {
+                            case 'ASC':
+                                $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                break;
+                            
+                            default:
+                                $instance->orderBy(\DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), 'ASC');
+                                break;
+                        }
+                    }
+                })
+                ->rawColumns(['dpg_name', 'time_ratio'])
+                ->toJson();
+            }   
+        }
+    }
